@@ -15,6 +15,8 @@ def nudft(samples: list, sample_times: list, freq_range: int):
         ]
     )
 
+    print(w)
+
     mat = np.matrix(w)
     mat **= -1
 
