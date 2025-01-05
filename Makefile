@@ -1,7 +1,7 @@
 CC:=gcc
 LD:=gcc
 
-CFLAGS:=-Wall -Wextra -O0 -g -std=gnu23 -I./external
+CFLAGS:=-Wall -Wextra -O3 -g -std=gnu23 -I./external
 LDFLAGS:=-lm -lgsl
 
 BIN:=bin

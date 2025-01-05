@@ -12,6 +12,7 @@ import ctypes as ct
 #   float x, y, z;
 # };
 
+
 class Accel(ct.Structure):
     _pack_ = 1
     _fields_ = [
@@ -23,8 +24,7 @@ class Accel(ct.Structure):
     ]
 
     def __repr__(self):
-        return \
-        '''
+        return """
         struct Accel {
             magic = %d,
             time = %.3f,
@@ -37,9 +37,14 @@ class Accel(ct.Structure):
 
             mag = %.3f
         }
-        ''' % (self.magic, self.time / 1000.0, self.x, self.y, self.z, np.sqrt(self.x * self.x + self.y * self.y + self.z * self.z))
-
-
+        """ % (
+            self.magic,
+            self.time / 1000.0,
+            self.x,
+            self.y,
+            self.z,
+            np.sqrt(self.x * self.x + self.y * self.y + self.z * self.z),
+        )
 
 
 ext = None
@@ -50,8 +55,8 @@ def init_extension():
 
     ext.nudft.restype = None
     ext.nudft.argtypes = [
-        np.ctypeslib.ndpointer(ct.c_float, ndim=1, flags='C'),
-        np.ctypeslib.ndpointer(ct.c_float, ndim=1, flags='C'),
+        np.ctypeslib.ndpointer(ct.c_float, ndim=1, flags="C"),
+        np.ctypeslib.ndpointer(ct.c_float, ndim=1, flags="C"),
         ct.c_uint64,
         np.ctypeslib.ndpointer(np.complex64, ndim=1, flags="C"),
     ]
@@ -98,10 +103,10 @@ def test(sample_times: list, frequencies: list):
         )
 
     sample_times = np.array(sample_times, dtype=np.float32)
-    #samples = np.exp(-np.power(sample_times - 5, 2))
+    # samples = np.exp(-np.power(sample_times - 5, 2))
     # samples = np.sign(sample_times)
     nudft(samples, sample_times, 10)
-    
+
     res = np.array(np.zeros(sample_times.size), dtype=np.complex64)
     ext.nudft(sample_times, samples, sample_times.size, res)
 
@@ -126,14 +131,17 @@ def main():
 
     sample_times = np.linspace(0, 10, 2000)
 
-    #test(sample_times, frequencies)
+    # test(sample_times, frequencies)
 
     f = open("data_sock_5", "rb")
     data = np.fromfile(f, dtype=Accel)
-    data = ct.cast(data.ctypes.data_as(ct.POINTER(Accel)), ct.POINTER((data.size * Accel)))[0]
-    print(list(data))
+    data = ct.cast(
+        data.ctypes.data_as(ct.POINTER(Accel)), ct.POINTER((data.size * Accel))
+    )[0]
     time = np.array([(i.time / 1000.0) for i in data], dtype=np.float32)
-    mag = np.array([np.sqrt(i.x * i.x + i.y * i.y + i.z * i.z) for i in data], dtype=np.float32)
+    mag = np.array(
+        [np.sqrt(i.x * i.x + i.y * i.y + i.z * i.z) for i in data], dtype=np.float32
+    )
     plt.plot(time, [i.x for i in data], label="x")
     plt.plot(time, [i.y for i in data], label="y")
     plt.plot(time, [i.z for i in data], label="z")
@@ -144,9 +152,10 @@ def main():
     transformed = np.array(np.zeros(time.size), dtype=np.complex64)
     ext.nudft(time, mag, time.size, transformed)
 
-    print(np.abs(transformed)[:int(np.floor((time.size - 1) * 0.5))])
-
-    plt.plot(range(int(np.floor((time.size - 1) * 0.5))), np.abs(transformed)[:int(np.floor((time.size - 1) * 0.5))])
+    plt.plot(
+        range(int(np.floor((time.size - 1) * 0.5))),
+        np.abs(transformed)[: int(np.floor((time.size - 1) * 0.5))],
+    )
     plt.show()
 
 
