@@ -144,6 +144,8 @@ def main():
     transformed = np.array(np.zeros(time.size), dtype=np.complex64)
     ext.nudft(time, mag, time.size, transformed)
 
+    print(np.abs(transformed)[:int(np.floor((time.size - 1) * 0.5))])
+
     plt.plot(range(int(np.floor((time.size - 1) * 0.5))), np.abs(transformed)[:int(np.floor((time.size - 1) * 0.5))])
     plt.show()
 
