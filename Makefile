@@ -78,3 +78,5 @@ valgrind:
 format:
 	@python -m black $(shell find ./src -type f -name "*.py")
 	
+py:
+	python src/main.py

@@ -22,6 +22,24 @@ class Accel(ct.Structure):
         ("z", ct.c_float),
     ]
 
+    def __repr__(self):
+        return \
+        '''
+        struct Accel {
+            magic = %d,
+            time = %.3f,
+
+            accel = {
+                %.3f,
+                %.3f,
+                %.3f
+            }
+
+            mag = %.3f
+        }
+        ''' % (self.magic, self.time / 1000.0, self.x, self.y, self.z, np.sqrt(self.x * self.x + self.y * self.y + self.z * self.z))
+
+
 
 
 ext = None
@@ -100,7 +118,6 @@ def test(sample_times: list, frequencies: list):
 
 def main():
     init_extension()
-    print(ct.sizeof(Accel))
     frequencies = [1, 2, 3, 4, 5, 6, 7, 8]
     # sample_times = [0, 0.6, 1.5, 2.6, 4.8, 6.3, 6.9, 8.7, 9.3, 11.5]
     # sample_times = [0]
@@ -109,7 +126,26 @@ def main():
 
     sample_times = np.linspace(0, 10, 2000)
 
-    test(sample_times, frequencies)
+    #test(sample_times, frequencies)
+
+    f = open("data_sock_5", "rb")
+    data = np.fromfile(f, dtype=Accel)
+    data = ct.cast(data.ctypes.data_as(ct.POINTER(Accel)), ct.POINTER((data.size * Accel)))[0]
+    print(list(data))
+    time = np.array([(i.time / 1000.0) for i in data], dtype=np.float32)
+    mag = np.array([np.sqrt(i.x * i.x + i.y * i.y + i.z * i.z) for i in data], dtype=np.float32)
+    plt.plot(time, [i.x for i in data], label="x")
+    plt.plot(time, [i.y for i in data], label="y")
+    plt.plot(time, [i.z for i in data], label="z")
+    plt.plot(time, mag, label="Magnitude")
+    plt.legend(loc="upper left")
+    plt.show()
+
+    transformed = np.array(np.zeros(time.size), dtype=np.complex64)
+    ext.nudft(time, mag, time.size, transformed)
+
+    plt.plot(range(int(np.floor((time.size - 1) * 0.5))), np.abs(transformed)[:int(np.floor((time.size - 1) * 0.5))])
+    plt.show()
 
 
 if __name__ == "__main__":
