@@ -1,20 +1,20 @@
-#include "nudft.h"
-
-#include <stdio.h>
 #include <complex.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
-#define SIZE 1000
+#include "nudft.h"
+
+#define SIZE 2000
 #define TIME 5.0f
 
 int main(void) {
   srand(time(NULL));
 
   printf("Hello world\n");
-  float x[SIZE];
-  float y[SIZE] = { 0 };
+  float *x = malloc(SIZE * sizeof(*x));
+  float *y = calloc(SIZE, sizeof(*y));
 
   float f[] = { 2.0f, 4.0f, 6.0f };
 
@@ -25,7 +25,7 @@ int main(void) {
     for (int i = 0; i < SIZE; i++) {
       x[i] = i * dt;
       y[i] += cosf(2 * M_PI * f[j] * x[i] + phi);
-      //y[i] += expf(-pow(x[i] - 5, 2));
+      // y[i] += expf(-pow(x[i] - 5, 2));
     }
   }
   complex float res[SIZE];
@@ -36,5 +36,7 @@ int main(void) {
     printf("%f\n", cabsf(res[i]));
   }
 
+  free(x);
+  free(y);
   return 0;
 }

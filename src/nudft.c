@@ -44,7 +44,3 @@ void nudft(float *x, float *y, uint64_t num_samples, complex float *res) {
   gsl_vector_complex_float_free(y_vec);
   gsl_vector_complex_float_free(res_vec);
 }
-
-void nudft_free(void *p) {
-  free(p);
-}

@@ -1,7 +1,7 @@
 CC:=gcc
 LD:=gcc
 
-CFLAGS:=-Wall -Wextra -O3 -g -std=gnu23 -I./external
+CFLAGS:=-Wall -Wextra -O0 -g -std=gnu23 -I./external
 LDFLAGS:=-lm -lgsl
 
 BIN:=bin
@@ -10,11 +10,12 @@ SRC:=src
 INCLUDE:=include
 
 
-TARGET:=$(BIN)/nudft.so
+TARGET:=$(BIN)/libnudft.so
 VALGRIND_OUT:=val.txt
 
-SRCS:=$(filter $(SRC)/main.c, $(shell find $(SRC) -type  f -name "*.c"))
+SRCS:=$(filter-out $(SRC)/main.c, $(shell find $(SRC) -type  f -name "*.c"))
 OBJS:=$(patsubst $(SRC)/%.c, $(OBJ)/%.o, $(SRCS))
+ASMS := $(patsubst $(SRC)/%.c, $(OBJ)/%.s, $(SRCS))
 
 TEST_SRCS:=$(shell find $(SRC) -type  f -name "*.c")
 TEST_OBJS:=$(patsubst $(SRC)/%.c, $(OBJ)/%.o, $(TEST_SRCS))
@@ -29,7 +30,7 @@ CREATE_DIR_COMMAND:=sh dirs.sh
 
 all: dirs $(TARGET) $(BIN)/test
 
-$(TARGET): $(OBJS)
+$(TARGET): $(OBJS) $(ASMS)
 	@echo
 	@echo building $@
 	@$(CC) $(CFLAGS) $(OBJS) -shared -o $@ $(LDFLAGS)
@@ -47,6 +48,13 @@ $(OBJ)/%.o: $(SRC)/%.c
 	@echo built $@
 	@echo
 
+
+$(OBJ)/%.s: $(SRC)/%.c
+	@echo Generating assembly $@
+	@$(CC) $(CFLAGS) -S -masm=intel $< -o $@
+	@echo Generated $@
+	@echo
+
 dirs:
 	@mkdir -p $(BIN)
 	@mkdir -p $(OBJ)
@@ -57,7 +65,7 @@ clean:
 	-@rm -rf $(BIN)
 
 run: $(TARGET)
-	@./$(TARGET)
+	@./$(BIN)/test
 
 valgrind:
 	@valgrind --leak-check=full \
@@ -65,7 +73,8 @@ valgrind:
          --track-origins=yes \
          --verbose \
          --log-file=$(VALGRIND_OUT) \
-         ./$(TARGET)
+         ./$(BIN)/test
 
 format:
-	@clang-format $(SRCS) $(INCLUDES) --style=Google -i
+	@python -m black $(shell find ./src -type f -name "*.py")
+	
