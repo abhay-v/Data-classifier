@@ -24,19 +24,12 @@ void nudft(float *x, float *y, uint64_t num_samples, complex float *res) {
   gsl_vector_complex_float *y_vec = gsl_vector_complex_float_alloc(num_samples);
   for (uint64_t i = 0; i < num_samples; i++) {
     gsl_vector_complex_float_set(y_vec, i, y[i] + 0.0fJ);
-    //  printf("%f + %fi\n", creal(gsl_vector_complex_float_get(y_vec, i)),
-    //         cimag(gsl_vector_complex_float_get(y_vec, i)));
   }
 
   gsl_vector_complex_float *res_vec =
     gsl_vector_complex_float_alloc(num_samples);
 
   gsl_blas_cgemv(CblasNoTrans, 1.0f + 0.0fJ, m, y_vec, 0.0f + 0.0fJ, res_vec);
-
-  for (int i = 0; i < num_samples; i++) {
-    //printf("%f + %fi\n", creal(gsl_vector_complex_float_get(res_vec, i)),
-    //       cimag(gsl_vector_complex_float_get(res_vec, i)));
-  }
 
   memcpy(res, res_vec->data, res_vec->size * sizeof(*res));
 
