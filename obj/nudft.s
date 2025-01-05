@@ -16,7 +16,7 @@
 	.globl	nudft
 	.type	nudft, @function
 nudft:
-.LFB1264:
+.LFB6:
 	.file 1 "src/nudft.c"
 	.loc 1 13 74
 	.cfi_startproc
@@ -225,7 +225,7 @@ nudft:
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
-.LFE1264:
+.LFE6:
 	.size	nudft, .-nudft
 	.section	.rodata
 	.align 8
@@ -649,8 +649,8 @@ nudft:
 	.byte	0x1
 	.byte	0xd
 	.byte	0x6
-	.quad	.LFB1264
-	.quad	.LFE1264-.LFB1264
+	.quad	.LFB6
+	.quad	.LFE6-.LFB6
 	.uleb128 0x1
 	.byte	0x9c
 	.long	0x444

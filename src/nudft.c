@@ -4,10 +4,10 @@
 #include <gsl/gsl_complex.h>
 #include <complex.h>
 #include <stdlib.h>
-#include <cglm/include/cglm/cglm.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_blas.h>
+#include <math.h>
 #include <string.h>
 
 void nudft(float *x, float *y, uint64_t num_samples, complex float *res) {
