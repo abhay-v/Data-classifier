@@ -1,7 +1,7 @@
 CC:=gcc
 LD:=gcc
 
-CFLAGS:=-Wall -Wextra -g -std=gnu23 -I./external
+CFLAGS:=-Wall -Wextra -O3 -g -std=gnu23 -I./external
 LDFLAGS:=-lm -lgsl
 
 BIN:=bin
@@ -11,7 +11,7 @@ INCLUDE:=include
 
 
 TARGET:=$(BIN)/test
-VALGRIND_OUT:=
+VALGRIND_OUT:=val.txt
 
 SRCS:=$(shell find $(SRC) -type  f -name "*.c")
 OBJS:=$(patsubst $(SRC)/%.c, $(OBJ)/%.o, $(SRCS))
@@ -55,7 +55,7 @@ valgrind:
          --track-origins=yes \
          --verbose \
          --log-file=$(VALGRIND_OUT) \
-         ./$(TARGET)	"test"
+         ./$(TARGET)
 
 format:
 	@clang-format $(SRCS) $(INCLUDES) --style=Google -i

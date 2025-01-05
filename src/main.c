@@ -4,27 +4,35 @@
 #include <complex.h>
 #include <math.h>
 #include <stdlib.h>
+#include <time.h>
 
-#define SIZE 20
+#define SIZE 1000
+#define TIME 5.0f
 
 int main(void) {
+  srand(time(NULL));
+
   printf("Hello world\n");
   float x[SIZE];
-  float y[SIZE];
-  for (uint32_t i = 0; i < SIZE; i++) {
-    if (i == 0) {
-      x[i] = i;
-      continue;
-    }
+  float y[SIZE] = { 0 };
 
-    x[i] = x[i - 1] + (rand() / (float)RAND_MAX) * 4;
-    //printf("%f\n", cosf(2.0f * M_PI * 4.0f * x[i]));
-    y[i] = cosf(2 * M_PI * 3 * x[i]);
+  float f[] = { 2.0f, 4.0f, 6.0f };
+
+  float dt = TIME / SIZE;
+  for (int j = 0; j < (int)(sizeof(f) / sizeof(f[0])); j++) {
+    float phi = (rand() / (float)RAND_MAX) * 10;
+
+    for (int i = 0; i < SIZE; i++) {
+      x[i] = i * dt;
+      y[i] += cosf(2 * M_PI * f[j] * x[i] + phi);
+      //y[i] += expf(-pow(x[i] - 5, 2));
+    }
   }
   complex float res[SIZE];
   nudft(x, y, SIZE, res);
 
-  for (int i = 0; i < 5; i++) {
+  printf("\n");
+  for (int i = 0; i < 100; i++) {
     printf("%f\n", cabsf(res[i]));
   }
 
