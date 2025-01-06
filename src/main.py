@@ -13,7 +13,7 @@ import ctypes as ct
 # };
 
 
-class Accel(ct.Structure):
+class s_data(ct.Structure):
     _pack_ = 1
     _fields_ = [
         ("magic", ct.c_uint16),
@@ -21,11 +21,13 @@ class Accel(ct.Structure):
         ("x", ct.c_float),
         ("y", ct.c_float),
         ("z", ct.c_float),
+        ("temp", ct.c_float),
+        ("audio", ct.c_float),
     ]
 
     def __repr__(self):
         return """
-        struct Accel {
+        struct s_data {
             magic = %d,
             time = %.3f,
 
@@ -35,7 +37,11 @@ class Accel(ct.Structure):
                 %.3f
             }
 
-            mag = %.3f
+            mag = %.3f,
+
+            temp = %.3f,
+
+            audio = %.3f,
         }
         """ % (
             self.magic,
@@ -44,6 +50,8 @@ class Accel(ct.Structure):
             self.y,
             self.z,
             np.sqrt(self.x * self.x + self.y * self.y + self.z * self.z),
+            self.temp,
+            self.audio
         )
 
 
@@ -133,10 +141,10 @@ def main():
 
     # test(sample_times, frequencies)
 
-    f = open("data_sock_5", "rb")
-    data = np.fromfile(f, dtype=Accel)
+    f = open("data_sock_5-rf", "rb")
+    data = np.fromfile(f, dtype=s_data)
     data = ct.cast(
-        data.ctypes.data_as(ct.POINTER(Accel)), ct.POINTER((data.size * Accel))
+        data.ctypes.data_as(ct.POINTER(s_data)), ct.POINTER((data.size * s_data))
     )[0]
     time = np.array([(i.time / 1000.0) for i in data], dtype=np.float32)
     mag = np.array(
