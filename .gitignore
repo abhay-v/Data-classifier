@@ -55,4 +55,5 @@ dkms.conf
 *.s
 bin/
 val.txt
+reformat-v2
 reformat

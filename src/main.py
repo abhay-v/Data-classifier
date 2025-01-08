@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import random as rand
 import numpy as np
 import ctypes as ct
+from scipy.fftpack import fft
+from sklearn.svm import OneClassSVM
 
 
 # struct __attribute__((packed)) accel {
@@ -51,11 +53,13 @@ class s_data(ct.Structure):
             self.z,
             np.sqrt(self.x * self.x + self.y * self.y + self.z * self.z),
             self.temp,
-            self.audio
+            self.audio,
         )
 
 
 ext = None
+
+
 def init_extension():
     global ext
 
@@ -70,63 +74,79 @@ def init_extension():
     ]
 
 
-def nudft(samples: list, sample_times: list, freq_range: int):
-    ats = list(np.linspace(sample_times[0], sample_times[-1], len(sample_times)))
+def check_new_reading(ocsvm, new_acc_data, new_thermal_data):
+    # Preprocess new reading
+    new_acc_freq_domain = apply_dft(new_acc_data.reshape(1, -1))
+    new_reading = np.hstack((new_acc_freq_domain, np.array([[new_thermal_data]])))
 
-    w = np.array(
-        [
-            [np.exp(1j * 2 * np.pi * j * i) for i in sample_times]
-            for j in range(len(sample_times))
-        ]
+    # Predict if the reading is normal or anomalous
+    prediction = ocsvm.predict(new_reading)
+    if prediction == 1:
+        print("Normal reading:", new_reading)
+    else:
+        print("Anomaly detected!")
+        print("Anomalous value(s):", new_reading)
+
+
+# Main function
+# def main():
+#     # Collect and preprocess training data
+#     acc_data = collect_accelerometer_data()
+#     thermal_data = collect_thermal_data()
+#     X_train = preprocess_data(acc_data, thermal_data)
+#
+#     # Train OCSVM model
+#     ocsvm = OneClassSVM(kernel='rbf', gamma='auto', nu=0.1)  # Adjust hyperparameters as needed
+#     ocsvm.fit(X_train)
+#
+#     # Live inference loop
+#     while True:
+#         try:
+#             # Simulate new readings (replace with actual data input)
+#             new_acc_data = np.random.rand(3)  # New accelerometer reading (x, y, z)
+#             new_thermal_data = np.random.rand()  # New thermal reading
+#             print("\nNew accelerometer reading:", new_acc_data)
+#             print("New thermal reading:", new_thermal_data)
+#
+#             # Check if the new reading is normal or anomalous
+#             check_new_reading(ocsvm, new_acc_data, new_thermal_data)
+#
+#             # Exit condition (for demonstration)
+#             user_input = input("Press 'q' to quit or any other key to continue: ")
+#             if user_input.lower() == 'q':
+#                 break
+#         except Exception as e:
+#             print("Error:", e)
+#
+
+
+def training_set_gen(raw):
+    time = np.array([(i.time / 1000.0) for i in raw], dtype=np.float32)
+    mag = np.array(
+        [np.sqrt(i.x * i.x + i.y * i.y + i.z * i.z) for i in raw], dtype=np.float32
     )
 
-    mat = np.matrix(w)
-    mat **= -1
+    # ext.nudft(time, mag, time.size, transformed)
 
-    f = [np.dot(i, samples) for i in w]
+    train = []
 
-    g = np.abs(f)
+    for i in range(len(time)):
+        if len(time[i : i + 1000]) == 1000:
+            transformed = np.array(np.zeros(1000), dtype=np.complex64)
+            ext.nudft(
+                time[i : i + 1000], mag[i : i + 1000], np.uint64(1000), transformed
+            )
 
-    plt.plot(
-        range(int(np.floor(len(sample_times) / 2))),
-        g[: int(np.floor(len(sample_times) / 2))],
-    )
-    plt.show()
-
-    f = mat * np.matrix(f).transpose()
-
-    plt.plot(
-        list(sample_times)[: int(np.floor(len(sample_times) / 2))],
-        f[: int(np.floor(len(sample_times) / 2))],
-    )
-    plt.show()
-
-
-def test(sample_times: list, frequencies: list):
-    samples = np.array(len(sample_times) * [0.0], dtype=np.float32)
-    for i in frequencies:
-        samples += np.cos(
-            2 * np.pi * float(i) * np.array(sample_times)
-            + (5 * rand.random() + np.pi / 2)
-        )
-
-    sample_times = np.array(sample_times, dtype=np.float32)
-    # samples = np.exp(-np.power(sample_times - 5, 2))
-    # samples = np.sign(sample_times)
-    nudft(samples, sample_times, 10)
-
-    res = np.array(np.zeros(sample_times.size), dtype=np.complex64)
-    ext.nudft(sample_times, samples, sample_times.size, res)
-
-    g = np.abs(res)
-    plt.plot(
-        range(int(np.floor(len(sample_times) / 2))),
-        g[: int(np.floor(len(sample_times) / 2))],
-    )
-    plt.show()
-
-    plt.plot(sample_times, samples)
-    plt.show()
+            train.append(
+                np.array([
+                    val
+                    for i in transformed[
+                        0 : int(np.floor((transformed.size - 1) / 2.0))
+                    ]
+                    for val in (i.real, i.imag)
+                ])
+            )
+    return np.array([train])
 
 
 def main():
@@ -141,11 +161,17 @@ def main():
 
     # test(sample_times, frequencies)
 
-    f = open("data_sock_5-rf", "rb")
+    f = open("data_sock_5-fix", "rb")
     data = np.fromfile(f, dtype=s_data)
     data = ct.cast(
         data.ctypes.data_as(ct.POINTER(s_data)), ct.POINTER((data.size * s_data))
     )[0]
+
+    for i, y in enumerate(data):
+        if y.time / 1000.0 > 80.0:
+            data = data[i:2000]
+            break
+
     time = np.array([(i.time / 1000.0) for i in data], dtype=np.float32)
     mag = np.array(
         [np.sqrt(i.x * i.x + i.y * i.y + i.z * i.z) for i in data], dtype=np.float32
@@ -154,8 +180,9 @@ def main():
     plt.plot(time, [i.y for i in data], label="y")
     plt.plot(time, [i.z for i in data], label="z")
     plt.plot(time, mag, label="Magnitude")
+    plt.plot(time, mag, label="Magnitude")
     plt.legend(loc="upper left")
-    plt.show()
+    # plt.show()
 
     transformed = np.array(np.zeros(time.size), dtype=np.complex64)
     ext.nudft(time, mag, time.size, transformed)
@@ -164,7 +191,17 @@ def main():
         range(int(np.floor((time.size - 1) * 0.5))),
         np.abs(transformed)[: int(np.floor((time.size - 1) * 0.5))],
     )
-    plt.show()
+    # plt.show()
+
+    train = training_set_gen(data)
+
+    svm = OneClassSVM(
+        kernel="rbf", gamma="auto", nu=0.1
+    )  # Adjust hyperparameters as needed
+    svm.fit(train[0: int(np.floor(len(train) / 2))])
+
+    print(train.size)
+    print("prediction", svm.predict(train[int(len(train) / 2.0)]))
 
 
 if __name__ == "__main__":

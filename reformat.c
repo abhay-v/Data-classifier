@@ -85,10 +85,10 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  struct accel *data_view = (struct accel *)data;
+  struct s_data *data_view = (struct s_data *)data;
   DA_TYPE(struct s_data) s_data_arr = { 0 };
 
-  while (size) {
+  while (size > 0) {
     // This if statement is a sanity test that makes sure that we're not reading complete nonsense
     if (data_view->magic == 0xaa55) {
       struct s_data s = {
@@ -106,6 +106,20 @@ int main(int argc, char **argv) {
       };
 
       DA_APPEND(&s_data_arr, s);
+
+    } else {
+      int64_t tmp_size = size;
+      struct s_data *tmp_data_view = data_view;
+      printf("%ld %p %p\n", tmp_size, data_view, tmp_data_view);
+      while (tmp_size) {
+        if (tmp_data_view->magic == 0xaa55) {
+          data_view = tmp_data_view;
+          break;
+        }
+
+        tmp_size--;
+        tmp_data_view = (struct s_data *)((char *)tmp_data_view + 1);
+      }
     }
 
     data_view += 1;
