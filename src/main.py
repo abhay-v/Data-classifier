@@ -6,6 +6,7 @@ import numpy as np
 import ctypes as ct
 from scipy.fftpack import fft
 from sklearn.svm import OneClassSVM
+import joblib
 
 
 # struct __attribute__((packed)) accel {
@@ -82,85 +83,6 @@ def init_extension():
         np.ctypeslib.ndpointer(ct.c_float, ndim=2, flags="C"),
     ]
 
-
-def check_new_reading(ocsvm, new_acc_data, new_thermal_data):
-    # Preprocess new reading
-    new_acc_freq_domain = apply_dft(new_acc_data.reshape(1, -1))
-    new_reading = np.hstack((new_acc_freq_domain, np.array([[new_thermal_data]])))
-
-    # Predict if the reading is normal or anomalous
-    prediction = ocsvm.predict(new_reading)
-    if prediction == 1:
-        print("Normal reading:", new_reading)
-    else:
-        print("Anomaly detected!")
-        print("Anomalous value(s):", new_reading)
-
-
-# Main function
-# def main():
-#     # Collect and preprocess training data
-#     acc_data = collect_accelerometer_data()
-#     thermal_data = collect_thermal_data()
-#     X_train = preprocess_data(acc_data, thermal_data)
-#
-#     # Train OCSVM model
-#     ocsvm = OneClassSVM(kernel='rbf', gamma='auto', nu=0.1)  # Adjust hyperparameters as needed
-#     ocsvm.fit(X_train)
-#
-#     # Live inference loop
-#     while True:
-#         try:
-#             # Simulate new readings (replace with actual data input)
-#             new_acc_data = np.random.rand(3)  # New accelerometer reading (x, y, z)
-#             new_thermal_data = np.random.rand()  # New thermal reading
-#             print("\nNew accelerometer reading:", new_acc_data)
-#             print("New thermal reading:", new_thermal_data)
-#
-#             # Check if the new reading is normal or anomalous
-#             check_new_reading(ocsvm, new_acc_data, new_thermal_data)
-#
-#             # Exit condition (for demonstration)
-#             user_input = input("Press 'q' to quit or any other key to continue: ")
-#             if user_input.lower() == 'q':
-#                 break
-#         except Exception as e:
-#             print("Error:", e)
-#
-
-
-def training_set_gen(raw):
-    print(raw)
-    time = np.array([(i.time / 1000.0) for i in raw], dtype=np.float32)
-    mag = np.array(
-        [np.sqrt(i.x * i.x + i.y * i.y + i.z * i.z) for i in raw], dtype=np.float32
-    )
-
-    # ext.nudft(time, mag, time.size, transformed)
-
-    train = []
-
-    for i in range(len(time)):
-        if len(time[i : i + 1000]) == 1000:
-            transformed = np.array(np.zeros(1000), dtype=np.complex64)
-            ext.nudft(
-                time[i : i + 1000], mag[i : i + 1000], np.uint64(1000), transformed
-            )
-
-            train.append(
-                np.array(
-                    [
-                        val
-                        for i in transformed[
-                            0 : int(np.floor((transformed.size - 1) / 2.0))
-                        ]
-                        for val in (i.real, i.imag)
-                    ]
-                )
-            )
-    return np.array([train])
-
-
 def main():
     init_extension()
     frequencies = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -185,7 +107,7 @@ def main():
     )
 
     num_samples = 800
-    num_points = 15000
+    num_points = 4000
 
     tmp = []
     for i in range(num_points):
@@ -218,6 +140,9 @@ def main():
 
     svm = OneClassSVM(kernel="rbf", gamma="scale", nu=0.1)
     svm.fit(train)
+    joblib.dump(svm, "svm.plk")
+
+    svm = joblib.load("svm.plk")
 
     print(
         "prediction",

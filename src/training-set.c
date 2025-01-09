@@ -30,5 +30,6 @@ uint64_t gen_training_set(float *t, float *y, uint64_t size,
     free(tmp);
   }
 
+  printf("\n");
   return i;
 }
