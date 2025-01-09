@@ -1,0 +1,246 @@
+import math
+import warnings
+import matplotlib.pyplot as plt
+import random as rand
+import numpy as np
+import ctypes as ct
+from scipy.fftpack import fft
+from sklearn.svm import OneClassSVM
+
+
+# struct __attribute__((packed)) accel {
+#   uint16_t magic;
+#   uint64_t time;
+#   float x, y, z;
+# };
+
+
+class s_data(ct.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ("magic", ct.c_uint16),
+        ("time", ct.c_uint64),
+        ("x", ct.c_float),
+        ("y", ct.c_float),
+        ("z", ct.c_float),
+        ("temp", ct.c_float),
+        ("audio", ct.c_float),
+    ]
+
+    def __repr__(self):
+        return """
+        struct s_data {
+            magic = %d,
+            time = %.3f,
+
+            accel = {
+                %.3f,
+                %.3f,
+                %.3f
+            }
+
+            mag = %.3f,
+
+            temp = %.3f,
+
+            audio = %.3f,
+        }
+        """ % (
+            self.magic,
+            self.time / 1000.0,
+            self.x,
+            self.y,
+            self.z,
+            np.sqrt(self.x * self.x + self.y * self.y + self.z * self.z),
+            self.temp,
+            self.audio,
+        )
+
+
+ext = None
+
+
+def init_extension():
+    global ext
+
+    ext = np.ctypeslib.load_library("libnudft", "./bin")
+
+    ext.nudft.restype = None
+    ext.nudft.argtypes = [
+        np.ctypeslib.ndpointer(ct.c_float, ndim=1, flags="C"),
+        np.ctypeslib.ndpointer(ct.c_float, ndim=1, flags="C"),
+        ct.c_uint64,
+        np.ctypeslib.ndpointer(np.complex64, ndim=1, flags="C"),
+    ]
+    ext.gen_training_set.restype = np.uint64
+    ext.gen_training_set.argtypes = [
+        np.ctypeslib.ndpointer(ct.c_float, ndim=1, flags="C"),
+        np.ctypeslib.ndpointer(ct.c_float, ndim=1, flags="C"),
+        ct.c_uint64,
+        ct.c_uint64,
+        ct.c_uint64,
+        np.ctypeslib.ndpointer(ct.c_float, ndim=2, flags="C"),
+    ]
+
+
+def check_new_reading(ocsvm, new_acc_data, new_thermal_data):
+    # Preprocess new reading
+    new_acc_freq_domain = apply_dft(new_acc_data.reshape(1, -1))
+    new_reading = np.hstack((new_acc_freq_domain, np.array([[new_thermal_data]])))
+
+    # Predict if the reading is normal or anomalous
+    prediction = ocsvm.predict(new_reading)
+    if prediction == 1:
+        print("Normal reading:", new_reading)
+    else:
+        print("Anomaly detected!")
+        print("Anomalous value(s):", new_reading)
+
+
+# Main function
+# def main():
+#     # Collect and preprocess training data
+#     acc_data = collect_accelerometer_data()
+#     thermal_data = collect_thermal_data()
+#     X_train = preprocess_data(acc_data, thermal_data)
+#
+#     # Train OCSVM model
+#     ocsvm = OneClassSVM(kernel='rbf', gamma='auto', nu=0.1)  # Adjust hyperparameters as needed
+#     ocsvm.fit(X_train)
+#
+#     # Live inference loop
+#     while True:
+#         try:
+#             # Simulate new readings (replace with actual data input)
+#             new_acc_data = np.random.rand(3)  # New accelerometer reading (x, y, z)
+#             new_thermal_data = np.random.rand()  # New thermal reading
+#             print("\nNew accelerometer reading:", new_acc_data)
+#             print("New thermal reading:", new_thermal_data)
+#
+#             # Check if the new reading is normal or anomalous
+#             check_new_reading(ocsvm, new_acc_data, new_thermal_data)
+#
+#             # Exit condition (for demonstration)
+#             user_input = input("Press 'q' to quit or any other key to continue: ")
+#             if user_input.lower() == 'q':
+#                 break
+#         except Exception as e:
+#             print("Error:", e)
+#
+
+
+def training_set_gen(raw):
+    print(raw)
+    time = np.array([(i.time / 1000.0) for i in raw], dtype=np.float32)
+    mag = np.array(
+        [np.sqrt(i.x * i.x + i.y * i.y + i.z * i.z) for i in raw], dtype=np.float32
+    )
+
+    # ext.nudft(time, mag, time.size, transformed)
+
+    train = []
+
+    for i in range(len(time)):
+        if len(time[i : i + 1000]) == 1000:
+            transformed = np.array(np.zeros(1000), dtype=np.complex64)
+            ext.nudft(
+                time[i : i + 1000], mag[i : i + 1000], np.uint64(1000), transformed
+            )
+
+            train.append(
+                np.array(
+                    [
+                        val
+                        for i in transformed[
+                            0 : int(np.floor((transformed.size - 1) / 2.0))
+                        ]
+                        for val in (i.real, i.imag)
+                    ]
+                )
+            )
+    return np.array([train])
+
+
+def main():
+    init_extension()
+    frequencies = [1, 2, 3, 4, 5, 6, 7, 8]
+    # sample_times = [0, 0.6, 1.5, 2.6, 4.8, 6.3, 6.9, 8.7, 9.3, 11.5]
+    # sample_times = [0]
+    # for i in range(2000 - 1):
+    #    sample_times.append(sample_times[-1] + (rand.random() * 5))
+
+    sample_times = np.linspace(0, 10, 2000)
+
+    # test(sample_times, frequencies)
+
+    f = open("data_sock_5-fix", "rb")
+    data = np.fromfile(f, dtype=s_data)
+    data = ct.cast(
+        data.ctypes.data_as(ct.POINTER(s_data)), ct.POINTER((data.size * s_data))
+    )[0]
+
+    time = np.array([(i.time / 1000.0) for i in data], dtype=np.float32)
+    mag = np.array(
+        [np.sqrt(i.x * i.x + i.y * i.y + i.z * i.z) for i in data], dtype=np.float32
+    )
+    plt.plot(time, [i.x for i in data], label="x")
+    plt.plot(time, [i.y for i in data], label="y")
+    plt.plot(time, [i.z for i in data], label="z")
+    plt.plot(time, mag, label="Magnitude")
+    plt.plot(time, mag, label="Magnitude")
+    plt.legend(loc="upper left")
+    # plt.show()
+
+    transformed = np.array(np.zeros(time.size), dtype=np.complex64)
+    # ext.nudft(time, mag, time.size, transformed)
+
+    plt.plot(
+        range(int(np.floor((time.size - 1) * 0.5))),
+        np.abs(transformed)[: int(np.floor((time.size - 1) * 0.5))],
+    )
+    # plt.show()
+
+    num_samples = 800
+    num_points = 500
+
+    tmp = []
+    for i in range(num_points):
+        if np.size(time) - i >= num_samples:
+            tmp.append(0)
+
+    train = np.zeros((len(tmp), 2 * np.int64((num_samples - 1) / 2)), dtype=np.float32, order="C")
+    test = np.zeros((10, 2 * np.int64((num_samples - 1) / 2)), dtype=np.float32, order="C")
+
+    ind = ext.gen_training_set(time, mag, np.size(time), len(tmp), num_samples, train)
+
+    tmp = []
+    for i in range(10):
+        if np.size(time) - i >= num_samples:
+            tmp.append(0)
+
+    test_time = np.array(list(time[ind:]), dtype=np.float32)
+    test_mag = np.array(list(mag[ind:]), dtype=np.float32)
+
+    ext.gen_training_set(
+        test_time,
+        test_mag,
+        np.size(test_time),
+        len(tmp),
+        num_samples,
+        test,
+    )
+
+    print(test)
+
+    svm = OneClassSVM(kernel="rbf", gamma="auto", nu=0.1)
+    svm.fit(train)
+
+    print(
+        "prediction",
+        svm.predict(test),
+    )
+
+
+if __name__ == "__main__":
+    warnings.filterwarnings("ignore")
+    main()

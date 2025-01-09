@@ -5,8 +5,9 @@
 #include <time.h>
 
 #include "nudft.h"
+#include "training-set.h"
 
-#define SIZE 2000
+#define SIZE 300000
 #define TIME 5.0f
 
 int main(void) {
@@ -28,13 +29,17 @@ int main(void) {
       // y[i] += expf(-pow(x[i] - 5, 2));
     }
   }
-  complex float res[SIZE];
-  nudft(x, y, SIZE, res);
+  //complex float res[SIZE];
+  //nudft(x, y, SIZE, res);
 
-  printf("\n");
-  for (int i = 0; i < 100; i++) {
-    printf("%f\n", cabsf(res[i]));
-  }
+  //printf("\n");
+  //for (int i = 0; i < 100; i++) {
+  //  printf("%f\n", cabsf(res[i]));
+  //}
+
+  float res[500][800 - 1];
+  gen_training_set(x, y, SIZE, 500, 800, res);
+  gen_training_set(&x[500], &y[500], SIZE, 10, 800, res);
 
   free(x);
   free(y);

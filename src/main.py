@@ -72,6 +72,15 @@ def init_extension():
         ct.c_uint64,
         np.ctypeslib.ndpointer(np.complex64, ndim=1, flags="C"),
     ]
+    ext.gen_training_set.restype = np.uint64
+    ext.gen_training_set.argtypes = [
+        np.ctypeslib.ndpointer(ct.c_float, ndim=1, flags="C"),
+        np.ctypeslib.ndpointer(ct.c_float, ndim=1, flags="C"),
+        ct.c_uint64,
+        ct.c_uint64,
+        ct.c_uint64,
+        np.ctypeslib.ndpointer(ct.c_float, ndim=2, flags="C"),
+    ]
 
 
 def check_new_reading(ocsvm, new_acc_data, new_thermal_data):
@@ -121,6 +130,7 @@ def check_new_reading(ocsvm, new_acc_data, new_thermal_data):
 
 
 def training_set_gen(raw):
+    print(raw)
     time = np.array([(i.time / 1000.0) for i in raw], dtype=np.float32)
     mag = np.array(
         [np.sqrt(i.x * i.x + i.y * i.y + i.z * i.z) for i in raw], dtype=np.float32
@@ -138,13 +148,15 @@ def training_set_gen(raw):
             )
 
             train.append(
-                np.array([
-                    val
-                    for i in transformed[
-                        0 : int(np.floor((transformed.size - 1) / 2.0))
+                np.array(
+                    [
+                        val
+                        for i in transformed[
+                            0 : int(np.floor((transformed.size - 1) / 2.0))
+                        ]
+                        for val in (i.real, i.imag)
                     ]
-                    for val in (i.real, i.imag)
-                ])
+                )
             )
     return np.array([train])
 
@@ -167,41 +179,50 @@ def main():
         data.ctypes.data_as(ct.POINTER(s_data)), ct.POINTER((data.size * s_data))
     )[0]
 
-    for i, y in enumerate(data):
-        if y.time / 1000.0 > 80.0:
-            data = data[i:2000]
-            break
-
     time = np.array([(i.time / 1000.0) for i in data], dtype=np.float32)
     mag = np.array(
         [np.sqrt(i.x * i.x + i.y * i.y + i.z * i.z) for i in data], dtype=np.float32
     )
-    plt.plot(time, [i.x for i in data], label="x")
-    plt.plot(time, [i.y for i in data], label="y")
-    plt.plot(time, [i.z for i in data], label="z")
-    plt.plot(time, mag, label="Magnitude")
-    plt.plot(time, mag, label="Magnitude")
-    plt.legend(loc="upper left")
-    # plt.show()
 
-    transformed = np.array(np.zeros(time.size), dtype=np.complex64)
-    ext.nudft(time, mag, time.size, transformed)
+    num_samples = 800
+    num_points = 15000
 
-    plt.plot(
-        range(int(np.floor((time.size - 1) * 0.5))),
-        np.abs(transformed)[: int(np.floor((time.size - 1) * 0.5))],
+    tmp = []
+    for i in range(num_points):
+        if np.size(time) - i >= num_samples:
+            tmp.append(0)
+
+    train = np.zeros((len(tmp), 2 * np.int64((num_samples - 1) / 2)), dtype=np.float32, order="C")
+    test = np.zeros((10, 2 * np.int64((num_samples - 1) / 2)), dtype=np.float32, order="C")
+
+    ind = ext.gen_training_set(time, mag, np.size(time), len(tmp), num_samples, train)
+
+    tmp = []
+    for i in range(10):
+        if np.size(time) - i >= num_samples:
+            tmp.append(0)
+
+    test_time = np.array(list(time[ind:]), dtype=np.float32)
+    test_mag = np.array(list(mag[ind:]), dtype=np.float32)
+
+    ext.gen_training_set(
+        test_time,
+        test_mag,
+        np.size(test_time),
+        len(tmp),
+        num_samples,
+        test,
     )
-    # plt.show()
 
-    train = training_set_gen(data)
+    print(test)
 
-    svm = OneClassSVM(
-        kernel="rbf", gamma="auto", nu=0.1
-    )  # Adjust hyperparameters as needed
-    svm.fit(train[0: int(np.floor(len(train) / 2))])
+    svm = OneClassSVM(kernel="rbf", gamma="scale", nu=0.1)
+    svm.fit(train)
 
-    print(train.size)
-    print("prediction", svm.predict(train[int(len(train) / 2.0)]))
+    print(
+        "prediction",
+        svm.predict(list(test) + [train[0]] + list(np.random.rand(10, 2 * np.int64((num_samples - 1) / 2)))),
+    )
 
 
 if __name__ == "__main__":
