@@ -107,15 +107,15 @@ def main():
     )
 
     num_samples = 800
-    num_points = 4000
+    num_points = 500
 
     tmp = []
     for i in range(num_points):
         if np.size(time) - i >= num_samples:
             tmp.append(0)
 
-    train = np.zeros((len(tmp), 2 * np.int64((num_samples - 1) / 2)), dtype=np.float32, order="C")
-    test = np.zeros((10, 2 * np.int64((num_samples - 1) / 2)), dtype=np.float32, order="C")
+    train = np.zeros((len(tmp), np.int64((num_samples - 1) / 2)), dtype=np.float32, order="C")
+    test = np.zeros((10, np.int64((num_samples - 1) / 2)), dtype=np.float32, order="C")
 
     ind = ext.gen_training_set(time, mag, np.size(time), len(tmp), num_samples, train)
 
@@ -146,7 +146,7 @@ def main():
 
     print(
         "prediction",
-        svm.predict(list(test) + [train[0]] + list(np.random.rand(10, 2 * np.int64((num_samples - 1) / 2)))),
+        svm.predict(list(test) + [train[0]] + list(1000 * np.random.rand(10, np.int64((num_samples - 1) / 2)))),
     )
 
 
