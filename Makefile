@@ -79,4 +79,4 @@ format:
 	@python -m black $(shell find ./src -type f -name "*.py")
 	
 py:
-	python src/main.py
+	python src/predict.py svm.plk

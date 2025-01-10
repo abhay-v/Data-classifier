@@ -37,9 +37,11 @@ int main(void) {
   //  printf("%f\n", cabsf(res[i]));
   //}
 
-  float res[500][800 - 1];
-  gen_training_set(x, y, SIZE, 500, 800, res);
-  gen_training_set(&x[500], &y[500], SIZE, 10, 800, res);
+  //float res[50000][(100 - 1) / 2];
+  float *res = malloc(50000 * sizeof(int[(100 - 1) / 2]));
+  gen_training_set(x, y, SIZE, 50000, 100, (float(*)[])res);
+  gen_training_set(&x[50000], &y[50000], SIZE - 50000, 10, 100,
+                   (float(*)[])res);
 
   free(x);
   free(y);

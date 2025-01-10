@@ -10,6 +10,8 @@
 uint64_t gen_training_set(float *t, float *y, uint64_t size,
                           uint64_t num_points, uint64_t num_samples,
                           float out[][(num_samples - 1) / 2]) {
+  printf("%lu, %lu\n", (num_samples - 1) / 2,
+         sizeof(out[0]) / sizeof((out[0][0])));
   uint64_t i = 0;
   for (i = 0; i < num_points; i++) {
     if (size - i < num_samples) {
