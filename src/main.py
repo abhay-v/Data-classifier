@@ -7,6 +7,7 @@ import ctypes as ct
 from scipy.fftpack import fft
 from sklearn.svm import OneClassSVM
 import joblib
+import sys
 
 from extension import *
 import extension
@@ -36,7 +37,24 @@ def main():
         [np.sqrt(i.x * i.x + i.y * i.y + i.z * i.z) for i in data], dtype=np.float32
     )
 
-    num_samples = 800
+    plt.plot(time[:150], mag[:150])
+    plt.show()
+
+    res = np.zeros(150, dtype=np.complex64)
+    print(type(res))
+    extension.ext.nudft(time, mag, 150, res)
+
+    res = np.array(
+        [
+            np.sqrt(i.real * i.real + i.imag * i.imag)
+            for i in res[: int(np.floor((res.size - 1) / 2))]
+        ]
+    )
+
+    plt.plot(range(len(res)), res)
+    plt.show()
+
+    num_samples = 150
     num_points = 50000
 
     tmp = []

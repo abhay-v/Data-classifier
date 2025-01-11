@@ -68,3 +68,45 @@ def init_extension():
         ct.c_uint64,
         np.ctypeslib.ndpointer(ct.c_float, ndim=2, flags="C"),
     ]
+
+    ext.py_memmove.restype = ct.c_void_p
+    ext.py_memmove.argtypes = [
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_size_t,
+    ]
+
+    ext.py_memcpy.restype = ct.c_void_p
+    ext.py_memcpy.argtypes = [
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_size_t,
+    ]
+
+    ext.py_element_ptr.restype = ct.c_void_p
+    ext.py_element_ptr.argtypes = [
+        ct.c_void_p,
+        ct.c_size_t,
+        ct.c_uint64,
+    ]
+
+    ext.py_fdopen.restype = ct.c_void_p
+    ext.py_fdopen.argtypes = [ct.c_int, ct.c_char_p]
+
+    ext.py_fclose.restype = ct.c_int
+    ext.py_fclose.argtypes = [ct.c_void_p]
+
+    ext.py_fread.restype = ct.c_size_t
+    ext.py_fread.argtypes = [
+        ct.c_void_p,
+        ct.c_size_t,
+        ct.c_size_t,
+        ct.c_void_p,
+    ]
+
+    ext.py_write_to_file.restype = ct.c_int
+    ext.py_write_to_file.argtypes = [
+        ct.c_void_p,
+        ct.c_void_p,
+        ct.c_int64,
+    ]
