@@ -55,7 +55,7 @@ def main():
     plt.show()
 
     num_samples = 150
-    num_points = 50000
+    num_points = 150000
 
     tmp = []
     for i in range(num_points):

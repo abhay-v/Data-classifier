@@ -13,8 +13,7 @@ import atexit
 
 import extension as ext
 
-BUF_SIZE = 1024 * 1024 * 4
-NUM_SAMPLES = 800
+NUM_SAMPLES = 150
 
 
 def main():
@@ -34,27 +33,35 @@ def main():
     write_fifo_fp = ext.ext.py_fdopen(write_fifo.fileno(), "wb".encode("utf-8"))
 
     def cleanup():
-        ext.ext.py_fdclose(read_fifo_fp)
-        ext.ext.py_fdclose(write_fifo_fp)
+        ext.ext.py_fclose(read_fifo_fp)
+        ext.ext.py_fclose(write_fifo_fp)
 
     atexit.register(cleanup)
 
     svm: OneClassSVM = joblib.load(sys.argv[1])
 
-    buf = (ct.sizeof(ext.s_data) * ct.c_uint8)(0)
+    buf = (ct.sizeof(ext.s_data) * ct.c_uint8)()
     buf_count = 0
 
-    samples = (ext.s_data * NUM_SAMPLES)(0)
+    samples = (ext.s_data * NUM_SAMPLES)()
     sample_count = 0
+
+    avg_pred = 0
+    avg_n = 0
 
     while True:
         n = ext.ext.py_fread(
-            ct.pointer(buf[buf_count]), 1, ct.sizeof(buf) - buf_count, read_fifo_fp
+            ct.cast(ct.byref(buf, buf_count), ct.POINTER(ct.c_uint8)),
+            1,
+            ct.sizeof(buf) - buf_count,
+            read_fifo_fp,
         )
         buf_count += n
 
         if buf_count == ct.sizeof(ext.s_data):
-            tmp = ct.cast(ct.pointer(buf[0]), ct.POINTER(ext.s_data))
+            tmp = ct.cast(
+                ct.cast(ct.byref(buf), ct.POINTER(ct.c_uint8)), ct.POINTER(ext.s_data)
+            )
             if tmp[0].magic == 0xAA55:
                 ct.memmove(ct.pointer(samples[sample_count]), tmp, ct.sizeof(buf))
                 sample_count += 1
@@ -85,10 +92,19 @@ def main():
             ]
         )
 
+        #plt.plot(range(len(res)), res)
+        #plt.show()
+
         prediction = ct.c_int32(svm.predict([res])[0])
         ext.ext.py_write_to_file(
             write_fifo_fp, ct.pointer(prediction), ct.sizeof(prediction)
         )
+
+        avg_pred = (avg_n * avg_pred + prediction.value) / (avg_n + 1)
+        avg_n += 1
+        
+        print(avg_pred)
+        #print("Prediction:", "OK" if prediction == 1 else "ERROR!", end='')
 
 
 if __name__ == "__main__":
